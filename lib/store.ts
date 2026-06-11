@@ -1,20 +1,24 @@
 import { list, put, del } from "@vercel/blob";
-import { SEED, type DB, type Evento, type Respuesta } from "./types";
+import { seedEventos, defaultPreguntas, type DB, type Evento, type Respuesta } from "./types";
 
 const EVENTOS_KEY = "encuestas/eventos.json";
 const RESP_PREFIX = "encuestas/resp/";
 
-// ── Eventos: un solo JSON (lo edita el admin, poco frecuente) ────────────────
+// Backfill: eventos guardados antes del modelo de preguntas reciben la plantilla por defecto.
+function migrate(eventos: Evento[]): Evento[] {
+  return eventos.map((e) => (Array.isArray(e.preguntas) && e.preguntas.length ? e : { ...e, preguntas: defaultPreguntas() }));
+}
+
 export async function readEventos(): Promise<Evento[]> {
   try {
     const { blobs } = await list({ prefix: EVENTOS_KEY });
     const b = blobs.find((x) => x.pathname === EVENTOS_KEY);
-    if (!b) return SEED.eventos; // primera vez: clase semilla
+    if (!b) return seedEventos();
     const r = await fetch(b.url, { cache: "no-store" });
-    if (!r.ok) return SEED.eventos;
-    return (await r.json()) as Evento[];
+    if (!r.ok) return seedEventos();
+    return migrate((await r.json()) as Evento[]);
   } catch {
-    return SEED.eventos;
+    return seedEventos();
   }
 }
 
@@ -24,7 +28,6 @@ export async function writeEventos(eventos: Evento[]): Promise<void> {
   });
 }
 
-// ── Respuestas: un blob por respuesta (append-only, sin condiciones de carrera) ──
 export async function addRespuesta(r: Respuesta): Promise<void> {
   await put(`${RESP_PREFIX}${r.eventId}/${r.id}.json`, JSON.stringify(r), {
     access: "public", contentType: "application/json", addRandomSuffix: false,

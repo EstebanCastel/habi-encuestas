@@ -9,5 +9,5 @@ export default async function SurveyPage({ params }: { params: Promise<{ id: str
   const db = await readDB();
   const ev = db.eventos.find((e) => e.id === id);
   if (!ev) notFound();
-  return <SurveyForm eventId={ev.id} nombre={ev.nombre} fecha={ev.fecha} />;
+  return <SurveyForm eventId={ev.id} nombre={ev.nombre} fecha={ev.fecha} preguntas={ev.preguntas} />;
 }
