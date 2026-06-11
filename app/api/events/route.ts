@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { readEventos, writeEventos, deleteEventoResponses } from "@/lib/store";
+import { putEvento, getEvento, deleteEvento } from "@/lib/store";
 import { defaultPreguntas, type Evento, type Pregunta } from "@/lib/types";
 export const dynamic = "force-dynamic";
 
@@ -10,29 +10,25 @@ function slug(s: string) {
 export async function POST(req: Request) {
   const { nombre, fecha, tipo } = await req.json();
   if (!nombre || !fecha) return NextResponse.json({ error: "Faltan datos" }, { status: 400 });
-  const eventos = await readEventos();
-  const id = slug(nombre) + "-" + Math.random().toString(36).slice(2, 6);
+  const id = (slug(nombre) || "evento") + "-" + Math.random().toString(36).slice(2, 6);
   const ev: Evento = { id, nombre, fecha, tipo: tipo === "evento" ? "evento" : "clase", preguntas: defaultPreguntas(), createdAt: new Date().toISOString() };
-  await writeEventos([ev, ...eventos]);
+  await putEvento(ev);
   return NextResponse.json(ev);
 }
 
 export async function PUT(req: Request) {
   const { id, nombre, fecha, preguntas } = await req.json();
-  const eventos = await readEventos();
-  const i = eventos.findIndex((e) => e.id === id);
-  if (i < 0) return NextResponse.json({ error: "No existe" }, { status: 404 });
-  if (nombre != null) eventos[i].nombre = nombre;
-  if (fecha != null) eventos[i].fecha = fecha;
-  if (Array.isArray(preguntas)) eventos[i].preguntas = preguntas as Pregunta[];
-  await writeEventos(eventos);
-  return NextResponse.json(eventos[i]);
+  const ev = await getEvento(id);
+  if (!ev) return NextResponse.json({ error: "No existe" }, { status: 404 });
+  if (nombre != null) ev.nombre = nombre;
+  if (fecha != null) ev.fecha = fecha;
+  if (Array.isArray(preguntas)) ev.preguntas = preguntas as Pregunta[];
+  await putEvento(ev);
+  return NextResponse.json(ev);
 }
 
 export async function DELETE(req: Request) {
   const { id } = await req.json();
-  const eventos = await readEventos();
-  await writeEventos(eventos.filter((e) => e.id !== id));
-  await deleteEventoResponses(id);
+  await deleteEvento(id);
   return NextResponse.json({ ok: true });
 }
