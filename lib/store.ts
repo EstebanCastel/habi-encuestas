@@ -14,7 +14,9 @@ export async function readEventos(): Promise<Evento[]> {
     const { blobs } = await list({ prefix: EVENTOS_KEY });
     const b = blobs.find((x) => x.pathname === EVENTOS_KEY);
     if (!b) return seedEventos();
-    const r = await fetch(b.url, { cache: "no-store" });
+    // cache-buster: evita que el CDN del blob sirva una versión vieja tras un write reciente
+    const bust = b.url + (b.url.includes("?") ? "&" : "?") + "_=" + Date.now();
+    const r = await fetch(bust, { cache: "no-store" });
     if (!r.ok) return seedEventos();
     return migrate((await r.json()) as Evento[]);
   } catch {
